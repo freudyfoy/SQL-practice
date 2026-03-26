@@ -1,1 +1,1 @@
-SQL command notes from Zero to Hero
+SQL Playgrounds
