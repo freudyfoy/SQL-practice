@@ -130,6 +130,209 @@ HAVING COUNT(*) > 1
 ORDER BY OrderID
 
 
--- Q.39)
+-- Q.39) Orders - accidental double-entry details
+-- Based on the previous question, we now want to show details of the order, 
+-- for orders that match the above criteria.
+WITH Criteria AS (
+SELECT	TOP 10
+	OrderID,
+	Quantity,
+	COUNT(*) AS DiffProdID
+	--ProductID
+FROM OrderDetails
+WHERE Quantity >= 60
+GROUP BY OrderID, Quantity
+HAVING COUNT(*) > 1
+-- ORDER BY OrderID
+)
+Select
+	*
+from OrderDetails
+where OrderID in (Select OrderID from Criteria)
+ORDER BY OrderID, Quantity
+
+
+-- Q.40) PotentialProblemOrders
+Select DISTINCT
+	OrderDetails.OrderID,
+	ProductID,
+	UnitPrice,
+	OrderDetails.Quantity,
+	Discount
+From OrderDetails
+Join (
+	Select
+		OrderID,
+		Quantity
+	From OrderDetails
+	Where Quantity >= 60
+	Group By OrderID, Quantity
+	Having Count(*) > 1
+) PotentialProblemOrders
+on PotentialProblemOrders.OrderID = OrderDetails.OrderID
+Order by OrderDetails.OrderID, ProductID
+
+
+-- Q.41) Late orders
+-- Some customers are complaining about their orders 1arriving late. Which orders are late?
+SELECT 
+	OrderID,
+	RequiredDate,
+	ShippedDate
+FROM Orders
+WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+
+
+-- Q.42) Late orders - which employees?
+-- Some salespeople have more orders arriving late than others. Maybe they're not following up on the order
+-- process, and need more training. Which salespeople have the most orders arriving late?
+WITH LateOrders AS(
+SELECT 
+	OrderID,
+	EmployeeID,
+	RequiredDate,
+	ShippedDate
+FROM Orders
+WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+)
+SELECT
+	E.EmployeeID,
+	E.LastName,
+	COUNT(*) AS TotalLateOrders
+FROM Employees AS E
+JOIN LateOrders AS L
+	ON E.EmployeeID = L.EmployeeID
+GROUP BY E.EmployeeID, E.LastName
+ORDER BY TotalLateOrders DESC
+
+
+-- Q.43) Late orders vs. total orders
+-- Andrew has been doing some more thinking some more about the problem of late orders.
+-- He realizes that just looking at the number of orders arriving late for each salesperson isn't a good idea. 
+-- It needs to be compared against the total number of orders per salesperson.
+WITH 
+	LateOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalLateOrders
+		FROM Orders
+		WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+		GROUP BY EmployeeID
+	),
+	AllOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalOrders
+		FROM Orders
+		GROUP BY EmployeeID
+	)
+SELECT
+	Em.EmployeeID,
+	Em.LastName,
+	TotalOrders,
+	TotalLateOrders
+FROM Employees AS Em
+INNER JOIN LateOrders AS L
+	ON Em.EmployeeID = L.EmployeeID
+INNER JOIN AllOrders AS A
+	ON Em.EmployeeID = A.EmployeeID
+ORDER BY Em.EmployeeID
+
+
+-- Q.44) Late orders vs. total orders - missing employee
+-- There's an employee missing in the answer from the
+-- problem above. Fix the SQL to show all employees who have taken orders.
+WITH 
+	LateOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalLateOrders
+		FROM Orders
+		WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+		GROUP BY EmployeeID
+	),
+	AllOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalOrders
+		FROM Orders
+		GROUP BY EmployeeID
+	)
+SELECT
+	Em.EmployeeID,
+	Em.LastName,
+	TotalOrders,
+	TotalLateOrders
+FROM Employees AS Em
+LEFT JOIN LateOrders AS L
+	ON Em.EmployeeID = L.EmployeeID
+LEFT JOIN AllOrders AS A
+	ON Em.EmployeeID = A.EmployeeID
+ORDER BY Em.EmployeeID
+
+
+-- Q.45) Late orders vs. total orders - fix null
+-- Continuing on the answer for above query, let's fix
+-- the results for row 5 - Buchanan. He should have a 0 instead of a Null in LateOrders.
+WITH 
+	LateOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalLateOrders
+		FROM Orders
+		WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+		GROUP BY EmployeeID
+	),
+	AllOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalOrders
+		FROM Orders
+		GROUP BY EmployeeID
+	)
+SELECT
+	Em.EmployeeID,
+	Em.LastName,
+	TotalOrders,
+	ISNULL(TotalLateOrders, 0) AS TotalLateOrders
+FROM Employees AS Em
+LEFT JOIN LateOrders AS L
+	ON Em.EmployeeID = L.EmployeeID
+LEFT JOIN AllOrders AS A
+	ON Em.EmployeeID = A.EmployeeID
+ORDER BY Em.EmployeeID
+
+
+-- Q.46) Late orders vs. total orders - percentage
+-- Now we want to get the percentage of late orders over total orders.
+-- And cut the PercentLateOrders off at 2 digits to the right of the decimal point.
+WITH 
+	LateOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalLateOrders
+		FROM Orders
+		WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+		GROUP BY EmployeeID
+	),
+	AllOrders AS (
+		SELECT 
+			EmployeeID,
+			COUNT(*) AS TotalOrders
+		FROM Orders
+		GROUP BY EmployeeID
+	)
+SELECT
+	Em.EmployeeID,
+	Em.LastName,
+	TotalOrders,
+	ISNULL(TotalLateOrders, 0) AS SumLateOrders,
+	ROUND(CAST(CAST(ISNULL(TotalLateOrders, 0) AS FLOAT) / CAST(TotalOrders AS FLOAT) AS FLOAT), 2) AS PercentLateOrders
+FROM Employees AS Em
+LEFT JOIN LateOrders AS L
+	ON Em.EmployeeID = L.EmployeeID
+LEFT JOIN AllOrders AS A
+	ON Em.EmployeeID = A.EmployeeID
+ORDER BY Em.EmployeeID
 
 
