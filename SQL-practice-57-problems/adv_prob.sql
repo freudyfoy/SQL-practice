@@ -17,7 +17,7 @@ WHERE CAST(O.OrderDate AS DATE) >= '2016-01-01'
 	AND CAST(O.OrderDate AS DATE) < '2017-01-01'
 GROUP BY OD.OrderID, O.CustomerID, C.CompanyName
 HAVING SUM(OD.UnitPrice * OD.Quantity) >= 10000
-ORDER BY TotalOrderAmount DESC
+ORDER BY TotalOrderAmount DESC;
 
 
 -- Q.33) High-value customers - total orders
@@ -37,8 +37,8 @@ LEFT JOIN Customers AS C
 WHERE CAST(O.OrderDate AS DATE) >= '2016-01-01' 
 	AND CAST(O.OrderDate AS DATE) < '2017-01-01'
 GROUP BY O.CustomerID, C.CompanyName
-HAVING SUM(OD.UnitPrice * OD.Quantity) >= 15000
-ORDER BY TotalOrderAmount DESC
+HAVING SUM(OD.UnitPrice * OD.Quantity) > 15000
+ORDER BY TotalOrderAmount DESC;
 
 
 -- Q.34) High-value customers - with discount
@@ -57,8 +57,8 @@ LEFT JOIN Customers AS C
 WHERE CAST(O.OrderDate AS DATE) >= '2016-01-01' 
 	AND CAST(O.OrderDate AS DATE) < '2017-01-01'
 GROUP BY O.CustomerID, C.CompanyName
-HAVING SUM(OD.UnitPrice * OD.Quantity * (1-OD.Discount)) >= 10000
-ORDER BY TotalOrderAmount DESC
+HAVING SUM(OD.UnitPrice * OD.Quantity * (1-OD.Discount)) > 10000
+ORDER BY TotalOrderAmount DESC;
 
 
 -- Q.35) Month-end orders
@@ -86,7 +86,16 @@ SELECT
 	OrderDate 
 	FROM CalculatedData
 WHERE Flag_EOM = 1
-ORDER BY EmployeeID, OrderID
+ORDER BY EmployeeID, OrderID;
+-- Answer:
+/* Select
+		EmployeeID
+		,OrderID
+		,OrderDate
+From Orders
+Where OrderDate = EOMONTH(OrderDate )
+Order by EmployeeID,OrderID
+*/
 
 
 -- Q.36) Orders with many line items
@@ -101,7 +110,7 @@ FROM Orders AS O
 LEFT JOIN OrderDetails AS OD
 	ON O.OrderID = OD.OrderID
 GROUP BY O.OrderID
-ORDER BY TotalItems DESC
+ORDER BY TotalItems DESC;
 
 
 -- Q.37) Orders - random assortment
@@ -127,7 +136,7 @@ FROM OrderDetails
 WHERE Quantity >= 60
 GROUP BY OrderID, Quantity
 HAVING COUNT(*) > 1
-ORDER BY OrderID
+ORDER BY OrderID;
 
 
 -- Q.39) Orders - accidental double-entry details
@@ -149,7 +158,7 @@ Select
 	*
 from OrderDetails
 where OrderID in (Select OrderID from Criteria)
-ORDER BY OrderID, Quantity
+ORDER BY OrderID, Quantity;
 
 
 -- Q.40) PotentialProblemOrders
@@ -170,7 +179,7 @@ Join (
 	Having Count(*) > 1
 ) PotentialProblemOrders
 on PotentialProblemOrders.OrderID = OrderDetails.OrderID
-Order by OrderDetails.OrderID, ProductID
+Order by OrderDetails.OrderID, ProductID;
 
 
 -- Q.41) Late orders
@@ -180,7 +189,7 @@ SELECT
 	RequiredDate,
 	ShippedDate
 FROM Orders
-WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE)
+WHERE CAST(ShippedDate AS DATE) >= CAST(RequiredDate AS DATE);
 
 
 -- Q.42) Late orders - which employees?
@@ -203,7 +212,7 @@ FROM Employees AS E
 JOIN LateOrders AS L
 	ON E.EmployeeID = L.EmployeeID
 GROUP BY E.EmployeeID, E.LastName
-ORDER BY TotalLateOrders DESC
+ORDER BY TotalLateOrders DESC;
 
 
 -- Q.43) Late orders vs. total orders
@@ -236,7 +245,7 @@ INNER JOIN LateOrders AS L
 	ON Em.EmployeeID = L.EmployeeID
 INNER JOIN AllOrders AS A
 	ON Em.EmployeeID = A.EmployeeID
-ORDER BY Em.EmployeeID
+ORDER BY Em.EmployeeID;
 
 
 -- Q.44) Late orders vs. total orders - missing employee
@@ -268,7 +277,7 @@ LEFT JOIN LateOrders AS L
 	ON Em.EmployeeID = L.EmployeeID
 LEFT JOIN AllOrders AS A
 	ON Em.EmployeeID = A.EmployeeID
-ORDER BY Em.EmployeeID
+ORDER BY Em.EmployeeID;
 
 
 -- Q.45) Late orders vs. total orders - fix null
@@ -300,7 +309,7 @@ LEFT JOIN LateOrders AS L
 	ON Em.EmployeeID = L.EmployeeID
 LEFT JOIN AllOrders AS A
 	ON Em.EmployeeID = A.EmployeeID
-ORDER BY Em.EmployeeID
+ORDER BY Em.EmployeeID;
 
 
 -- Q.46) Late orders vs. total orders - percentage
@@ -333,6 +342,263 @@ LEFT JOIN LateOrders AS L
 	ON Em.EmployeeID = L.EmployeeID
 LEFT JOIN AllOrders AS A
 	ON Em.EmployeeID = A.EmployeeID
-ORDER BY Em.EmployeeID
+ORDER BY Em.EmployeeID;
 
 
+-- Q.48) Customer grouping
+-- Andrew Fuller would like to do a sales campaign for existing customers.
+-- He'd like to categorize customers into groups, based on how much they ordered in 2016.
+-- Then, depending on which group the customer is in, he will target the customer with different sales materials.
+-- The customer grouping categories are 0 - 1,000, 1,000 - 5,000, 5,000 - 10,000, and over 10,000.
+-- A good starting point for this query is the answer
+-- from the problem “High-value customers - total orders". We don’t want to show customers who don’t
+-- have any orders in 2016. Order the results by CustomerID.
+SELECT
+	O.CustomerID,
+	C.CompanyName,
+	SUM(OD.UnitPrice * OD.Quantity) AS TotalOrderAmount,
+	CASE
+		WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 0 AND SUM(OD.UnitPrice * OD.Quantity) < 1000
+			THEN 'Low'
+		WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 1000 AND SUM(OD.UnitPrice * OD.Quantity) < 5000
+			THEN 'Medium'
+		WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 5000 AND SUM(OD.UnitPrice * OD.Quantity) < 10000
+			THEN 'High'
+		WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 10000
+			THEN 'Very High' 
+	END AS CustomerGroup
+FROM OrderDetails AS OD
+LEFT JOIN Orders AS O
+	ON OD.OrderID = O.OrderID
+LEFT JOIN Customers AS C
+	ON O.CustomerID = C.CustomerID
+WHERE OrderDate >= '20160101' AND OrderDate < '20170101'
+GROUP BY O.CustomerID, C.CompanyName
+ORDER BY O.CustomerID;
+
+
+-- Q.49) Customer grouping - fix null
+-- There's a bug with the answer for the previous question. 
+-- The CustomerGroup value for one of the rows is null.
+-- Fix the SQL so that there are no nulls in the CustomerGroup field.
+WITH CustGrp AS(	
+	SELECT
+		O.CustomerID,
+		C.CompanyName,
+		SUM(OD.UnitPrice * OD.Quantity) AS TotalOrderAmount,
+		CASE
+			WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 0 AND SUM(OD.UnitPrice * OD.Quantity) < 1000
+				THEN 'Low'
+			WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 1000 AND SUM(OD.UnitPrice * OD.Quantity) < 5000
+				THEN 'Medium'
+			WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 5000 AND SUM(OD.UnitPrice * OD.Quantity) < 10000
+				THEN 'High'
+			WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 10000
+				THEN 'Very High' 
+		END AS CustomerGroup
+	FROM OrderDetails AS OD
+	LEFT JOIN Orders AS O
+		ON OD.OrderID = O.OrderID
+	LEFT JOIN Customers AS C
+		ON O.CustomerID = C.CustomerID
+	WHERE OrderDate >= '20160101' AND OrderDate < '20170101'
+	GROUP BY O.CustomerID, C.CompanyName
+	--ORDER BY O.CustomerID
+)
+SELECT
+	*
+FROM CustGrp;
+
+-- Q.50)Customer grouping with percentage
+-- Based on the above query, show all the defined CustomerGroups, and the percentage in each. 
+-- Sort by the total in each group, in descending order.
+WITH 
+	CustomerGrouping AS (	
+		SELECT
+			O.CustomerID,
+			C.CompanyName,
+			SUM(OD.UnitPrice * OD.Quantity) AS TotalOrderAmount,
+			CASE
+				WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 0 AND SUM(OD.UnitPrice * OD.Quantity) < 1000
+					THEN 'Low'
+				WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 1000 AND SUM(OD.UnitPrice * OD.Quantity) < 5000
+					THEN 'Medium'
+				WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 5000 AND SUM(OD.UnitPrice * OD.Quantity) < 10000
+					THEN 'High'
+				WHEN  SUM(OD.UnitPrice * OD.Quantity) >= 10000
+					THEN 'Very High' 
+			END AS CustomerGroup
+		FROM OrderDetails AS OD
+		LEFT JOIN Orders AS O
+			ON OD.OrderID = O.OrderID
+		LEFT JOIN Customers AS C
+			ON O.CustomerID = C.CustomerID
+		WHERE OrderDate >= '20160101' AND OrderDate < '20170101'
+		GROUP BY O.CustomerID, C.CompanyName
+		--ORDER BY O.CustomerID
+	)
+SELECT
+	CustomerGroup,
+	COUNT(*) AS TotalInGroup, 
+	COUNT(*) * 1.0/ (SELECT COUNT(*) FROM CustomerGrouping) AS PercentageInGroup
+FROM CustomerGrouping
+GROUP BY CustomerGroup
+ORDER BY TotalInGroup DESC;
+
+
+-- Q.51) Customer grouping - flexible
+-- Andrew thinking about how best to group customers, and define low, medium, high, and very high value customers. He now wants
+-- complete flexibility in grouping the customers, based on the dollar amount they've ordered. He doesn’t
+-- want to have to edit SQL in order to change the boundaries of the customer groups.
+-- How would you write the SQL?
+-- There's a table called CustomerGroupThreshold that you will need to use. Use only orders from 2016.
+WITH 
+	Customer2016 AS (	
+		SELECT
+			O.CustomerID,
+			C.CompanyName,
+			SUM(OD.UnitPrice * OD.Quantity) AS TotalOrderAmount
+		FROM OrderDetails AS OD
+		LEFT JOIN Orders AS O
+			ON OD.OrderID = O.OrderID
+		LEFT JOIN Customers AS C
+			ON O.CustomerID = C.CustomerID
+		WHERE OrderDate >= '20160101' AND OrderDate < '20170101'
+		GROUP BY O.CustomerID, C.CompanyName
+	)
+
+SELECT
+	CustomerID,
+	CompanyName,
+	CustomerGroupName
+FROM Customer2016
+JOIN CustomerGroupThresholds
+	ON TotalOrderAmount BETWEEN CustomerGroupThresholds.RangeBottom AND CustomerGroupThresholds.RangeTop
+ORDER BY CustomerID;
+
+
+-- Q.52) Countries with suppliers or customers
+-- Some Northwind employees are planning a business trip, and would like to visit as many suppliers and
+-- customers as possible. For their planning, they’d like to see a list of all countries where suppliers and/or
+-- customers are based.
+SELECT Country FROM Customers
+UNION
+SELECT Country FROM Suppliers;
+
+
+-- Q.53) Countries with suppliers or customers, version 2
+-- The employees going on the business trip don’t want just a raw list of countries, they want more details.
+WITH
+	CustomerCountry AS (
+	SELECT 
+		DISTINCT Customers.Country
+	FROM Customers
+	),
+	SupplierCountry AS (
+	SELECT
+		DISTINCT Country
+	FROM Suppliers
+	)
+SELECT 
+	SupplierCountry.Country AS SupplierCountry,
+	CustomerCountry.Country AS CustomerCountry
+From SupplierCountry
+Full Outer Join CustomerCountry
+ON CustomerCountry.Country = SupplierCountry.Country
+
+
+-- Q.54) Countries with suppliers or customers - version 3
+-- The output of the above is improved, but it’s still not ideal
+-- What we’d really like to see is the country name, the total suppliers, and the total customers.
+WITH
+	CustomerCountry AS (
+	SELECT 
+		Country,
+		COUNT(*) AS TotalCustomers
+	FROM Customers
+	GROUP BY Country
+	),
+	SupplierCountry AS (
+	SELECT
+		Country,
+		COUNT(*) AS TotalSuppliers
+	FROM Suppliers
+	GROUP BY Country
+	)
+SELECT 
+	ISNULL(SupplierCountry.Country,CustomerCountry.Country) AS Country,
+	ISNULL(TotalSuppliers,0) AS TotalSuppliers, 
+	ISNULL(TotalCustomers,0) AS TotalCustomers
+From SupplierCountry
+Full OUTER JOIN CustomerCountry
+ON CustomerCountry.Country = SupplierCountry.Country
+
+
+-- Q.55) First order in each country
+-- Looking at the Orders table—we’d like to show details for each order that was the first in that
+-- particular country, ordered by OrderID.
+-- So, we need one row per ShipCountry, and CustomerID, OrderID, and OrderDate should be of
+-- the first order from that country.
+WITH Part AS (
+SELECT
+	CustomerID,
+	OrderID,
+	CAST(OrderDate AS DATE) AS OrderDate,
+	ShipCountry,
+	ROW_NUMBER() OVER (PARTITION BY ShipCountry ORDER BY OrderDate) AS row_num
+FROM Orders
+)
+SELECT
+	ShipCountry,
+	CustomerID,
+	OrderID,
+	OrderDate	
+FROM Part
+WHERE row_num = 1
+ORDER BY ShipCountry
+
+
+-- Q.56) Customers with multiple orders in 5 day period
+-- There are some customers for whom freight is a major expense when ordering from Northwind.
+-- However, by batching up their orders, and making one larger order instead of multiple smaller orders in
+-- a short period of time, they could reduce their freight costs significantly.
+-- Show those customers who have made more than 1 order in a 5 day period. The sales people will use this to help customers reduce their costs.
+-- Note: There are more than one way of solving this kind of problem. For this problem, we will not be using Window functions.
+WITH CalDatediff AS (
+	SELECT
+		InitialOrder.CustomerID,
+		InitialOrder.OrderID AS InitialOrderID,
+		InitialOrder.OrderDate AS InitialOrderDate,
+		NextOrder.OrderID AS NextOrderID,
+		NextOrder.OrderDate AS NextOrderDate,
+		DATEDIFF(dd, InitialOrder.OrderDate,NextOrder.OrderDate) AS DaysBetween
+	FROM Orders InitialOrder
+	JOIN Orders NextOrder
+	ON InitialOrder.CustomerID = NextOrder.CustomerID
+	WHERE InitialOrder.OrderID < NextOrder.OrderID
+)
+SELECT * 
+FROM CalDatediff
+WHERE DaysBetween <= 5
+ORDER BY CustomerID,InitialOrderID
+
+
+-- Q.57) Customers with multiple orders in 5 day period, version 2
+-- There’s another way of solving the problem above, using Window functions.
+WITH NextOrderData AS ( 
+SELECT
+	CustomerID,
+	CONVERT(date, OrderDate) AS OrderDate,
+	NextOrderDate = CONVERT(date, Lead(OrderDate,1)
+						OVER (Partition by CustomerID order by CustomerID,OrderDate)
+	)
+FROM Orders
+)
+SELECT
+	CustomerID,
+	OrderDate,
+	NextOrderDate,
+	DATEDIFF(dd, OrderDate, NextOrderDate) AS DaysBetween
+FROM NextOrderData
+WHERE DATEDIFF(dd, OrderDate, NextOrderDate) <= 5
+ORDER BY CustomerID, OrderDate
